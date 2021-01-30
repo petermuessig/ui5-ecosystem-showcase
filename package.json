@@ -27,7 +27,8 @@
     "watch": "cd packages/ui5-app && yarn watch"
   },
   "devDependencies": {
-    "lerna": "^3.22.1"
+    "lerna": "^3.22.1",
+    "prettier": "2.2.1"
   },
   "workspaces": [
     "packages/*"
