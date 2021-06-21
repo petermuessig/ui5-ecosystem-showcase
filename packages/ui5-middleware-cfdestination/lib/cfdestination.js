@@ -1,5 +1,6 @@
 const approuter = require("@sap/approuter")()
 const fs = require("fs")
+const path = require("path")
 const request = require("request")
 const log = require("@ui5/logger").getLogger("server:custommiddleware:cfdestination")
 
@@ -27,7 +28,8 @@ module.exports = ({ resources, options }) => {
         destinations: [],
         allowServices: false,
         authenticationMethod: "none",
-        allowLocalDir: false
+        allowLocalDir: false,
+        subdomain: null
     }
     // config-time options from ui5.yaml for cfdestination take precedence
     if (options.configuration) {
@@ -37,8 +39,9 @@ module.exports = ({ resources, options }) => {
     request.debug = effectiveOptions.debug // pass debug flag on to underlying request lib
     process.env.XS_APP_LOG_LEVEL = effectiveOptions.debug ? "DEBUG" : "ERROR"
     // read in the cf config file
-    const xsappConfig = JSON.parse(fs.readFileSync(effectiveOptions.xsappJson, "utf8"))
-    const xsappPath = effectiveOptions.xsappJson.replace("xs-app.json", "")
+    const _xsappJson = path.resolve(resources.rootProject._readers[0]._fsBasePath, "..", effectiveOptions.xsappJson) // respect cwd of containing ui5 server
+    const xsappConfig = JSON.parse(fs.readFileSync(_xsappJson, "utf8"))
+    const xsappPath = _xsappJson.replace("xs-app.json", "")
 
     // the default auth mechanism is set to none but the user can pass an auth method using the options
     xsappConfig.authenticationMethod = effectiveOptions.authenticationMethod
@@ -90,7 +93,12 @@ module.exports = ({ resources, options }) => {
         for (let [index, regEx] of regExes.entries()) {
             if (regEx.test(req.path)) {
                 match = true
-                url = `${req.protocol}://localhost:${effectiveOptions.port}${req.originalUrl}`
+                if (effectiveOptions.subdomain) {
+                    // subdomain of the subscribed tenant in multitenancy context
+                    url = `${req.protocol}://${effectiveOptions.subdomain}.localhost:${effectiveOptions.port}${req.originalUrl}`
+                } else {
+                    url = `${req.protocol}://localhost:${effectiveOptions.port}${req.originalUrl}`
+                }
                 break
             }
         }

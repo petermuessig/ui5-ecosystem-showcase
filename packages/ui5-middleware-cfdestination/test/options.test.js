@@ -102,13 +102,13 @@ test("ui5.yaml: no config -> default options apply", async (t) => {
 
     // start ui5-app with modified route(s) and config
     const child = spawn(`ui5 serve --port ${t.context.port.ui5Sserver} --config ${ui5.yaml}`, {
-        // stdio: "inherit", // > don't include stdout in test output
+        stdio: "inherit", // > don't include stdout in test output
         shell: true,
         cwd: t.context.tmpDir
     })
 
     // wait for ui5 server and app router to boot
-    await waitOn({ timeout: 10000, resources: [`tcp:${t.context.port.ui5Sserver}`, `tcp:5000`] })
+    await waitOn({ resources: [`tcp:${t.context.port.ui5Sserver}`, `tcp:5000`] })
 
     const app = request(`http://localhost:${t.context.port.ui5Sserver}`)
     // test for the app being started correctly

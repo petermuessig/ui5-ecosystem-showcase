@@ -1,0 +1,27 @@
+specVersion: "2.2"
+metadata:
+  name: ui5-app
+type: application
+framework:
+  name: OpenUI5
+  version: "1.89.1"
+  libraries:
+    - name: sap.m
+    - name: sap.ui.core
+    - name: sap.ui.layout
+    - name: themelib_sap_fiori_3
+server:
+  customMiddleware:
+    - name: ui5-middleware-cfdestination
+      afterMiddleware: compression
+      configuration:
+        authenticationMethod: "route"
+        debug: true
+        port: 1091
+        xsappJson: "xs-app.json"
+        # subdomain of a tenant/subaccount which is subscribed to the multitenant app
+        subdomain: "foo"
+        destinations:
+          # check that the destination name (here: "backend") matches your router in xssppJson
+          - name: "backend"
+            url: "https://services.odata.org/V4/(S(fdng4tbvlxgzpdtpfap2rqss))/TripPinServiceRW/"

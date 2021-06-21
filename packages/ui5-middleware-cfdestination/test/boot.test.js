@@ -1,9 +1,13 @@
 const crypto = require("crypto")
 const fs = require("fs-extra")
+const nock = require("nock")
 const getPort = require("get-port")
+const normalizer = require("@ui5/project").normalizer
 const path = require("path")
 const replace = require("replace-in-file")
 const request = require("supertest")
+const _request = require("axios")
+const server = require("@ui5/server").server
 const { spawn } = require("child_process")
 
 const test = require("ava")
@@ -247,4 +251,67 @@ test("allow localDir usage in app router for auth-protected static files", async
     t.true(responseNoAuth.text.includes("placeholder"))
 
     child.kill() // don't take it literally
+})
+
+/**
+ * multitenant context
+ * expected result: redirect to subscribed subaccount idp for route /backend
+ */
+test("(multitenant) auth in yaml, xsuaa auth in route -> route is protected", async (t) => {
+    await prepUi5ServerConfig({
+        ui5Yaml: "./test/multitenant/ui5-auth-multitenant.yaml",
+        appRouterPort: t.context.port.appRouter,
+        xsAppJson: "./test/multitenant/xs-app.json",
+        defaultEnvJson: "./test/multitenant/default-env.json",
+        tmpDir: t.context.tmpDir
+    })
+
+    // mock local DNS for multi-tenany on "foo"
+    nock(`http://foo.localhost:${t.context.port.appRouter}`)
+        .get("/backend/")
+        .reply(200, (_, __, cb) => {
+            fs.readFile("./test/multitenant/mockedApprouterResonse.html", cb)
+        })
+
+    // start ui5-app with modified route(s) and config - in this test case, do things programmatically
+    // with the ui5 server api instead of spawning sub-processes
+    // reason: above DNS mock; nock needs to attach to the current running process and can't attach to a sub-process
+    const tree = await normalizer.generateProjectTree({ cwd: t.context.tmpDir })
+    let serve = await server.serve(tree, { port: t.context.port.ui5Sserver })
+
+    // wait for ui5 server and app router to boot
+    // -- probably don't need this as we're `await`ing server.serve() above?
+    // await waitOn({ resources: [`tcp:${t.context.port.ui5Sserver}`, `tcp:${t.context.port.appRouter}`] })
+
+    const app = request(`http://localhost:${t.context.port.ui5Sserver}`)
+    // test for the app being started correctly
+    const responseIndex = await app.get("/index.html")
+    t.is(responseIndex.status, 200, "http 200 on index")
+
+    // test for the redirect reponse to
+    // include code for multi-tenant aware client-side redirect to idp
+    const responseIdpRedirect = await app.get("/backend/")
+    t.is(responseIdpRedirect.status, 200)
+    t.true(
+        responseIdpRedirect.text.includes("https://foo.authentication.eu10.hana.ondemand.com/oauth/authorize"),
+        "multi-tenant oauth endpoint redirect injected"
+    )
+
+    // clean up DNS mock
+    nock.cleanAll()
+    nock.restore()
+
+    // clean up programmatic ui5 server
+    const _close = () =>
+        new Promise((resolve, reject) => {
+            serve.close((error) => {
+                if (error) {
+                    reject(error)
+                } else {
+                    resolve()
+                }
+            })
+        })
+
+    await _close()
 })

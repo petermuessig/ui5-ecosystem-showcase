@@ -1,0 +1,18 @@
+{
+  "TENANT_HOST_PATTERN": "^(.*).localhost",
+  "VCAP_SERVICES": {
+    "xsuaa": [
+      {
+        "credentials": {
+          "tenantmode": "shared",
+          "clientid": "clientid",
+          "clientsecret": "clientsecret",
+          "url": "https://authentication.eu10.hana.ondemand.com",
+          "uaadomain": "authentication.eu10.hana.ondemand.com"
+        },
+        "label": "xsuaa",
+        "tags": ["xsuaa"]
+      }
+    ]
+  }
+}
